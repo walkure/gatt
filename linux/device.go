@@ -9,10 +9,12 @@ import (
 
 	"github.com/bettercap/gatt/linux/gioctl"
 	"github.com/bettercap/gatt/linux/socket"
+	"golang.org/x/sys/unix"
 )
 
 type device struct {
 	fd   int
+	fds  []unix.PollFd
 	dev  int
 	name string
 	rmu  *sync.Mutex
@@ -90,8 +92,14 @@ func newSocket(fd, n int, chk bool) (*device, error) {
 			return nil, err
 		}
 	}
+
+	fds := make([]unix.PollFd, 1)
+	fds[0].Fd = int32(fd)
+	fds[0].Events = unix.POLLIN
+
 	return &device{
 		fd:   fd,
+		fds:  fds,
 		dev:  n,
 		name: name,
 		rmu:  &sync.Mutex{},
@@ -102,6 +110,11 @@ func newSocket(fd, n int, chk bool) (*device, error) {
 func (d device) Read(b []byte) (int, error) {
 	d.rmu.Lock()
 	defer d.rmu.Unlock()
+	// Use poll to avoid blocking on Read
+	n, err := unix.Poll(d.fds, 100)
+	if n == 0 || err != nil {
+		return 0, err
+	}
 	return syscall.Read(d.fd, b)
 }
 

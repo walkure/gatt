@@ -12,6 +12,10 @@ func NewBytePool(width int, depth int) *BytePool {
 	}
 }
 
+func (p *BytePool) Close() {
+	close(p.pool)
+}
+
 func (p *BytePool) Get() (b []byte) {
 	select {
 	case b = <-p.pool:

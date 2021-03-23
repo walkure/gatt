@@ -92,7 +92,7 @@ func NewHCI(devID int, chk bool, maxConn int) (*HCI, error) {
 
 func (h *HCI) Close() error {
 	log.Printf("hci.Close()")
-	h.pool.Put(nil)
+	h.pool.Close()
 	<-h.loopDone
 	log.Printf("mainLoop exited")
 	for _, c := range h.conns {
@@ -195,13 +195,10 @@ func (h *HCI) mainLoop() {
 			log.Printf("mainloop err: %v", err)
 			return
 		}
-		if n == 0 {
-			log.Printf("mainLoop failed to read")
-			return
+		if n > 0 {
+			// log.Printf("hci.mainLoop -> handlePacket")
+			h.handlePacket(b, n)
 		}
-
-		// log.Printf("hci.mainLoop -> handlePacket")
-		h.handlePacket(b, n)
 	}
 	log.Printf("hci.mainLoop stopped")
 }
