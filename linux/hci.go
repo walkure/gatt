@@ -9,6 +9,7 @@ import (
 	"github.com/bettercap/gatt/linux/cmd"
 	"github.com/bettercap/gatt/linux/evt"
 	"github.com/bettercap/gatt/linux/util"
+	"golang.org/x/sys/unix"
 )
 
 type HCI struct {
@@ -192,6 +193,10 @@ func (h *HCI) mainLoop() {
 		// log.Printf("hci.mainLoop Read(%d)", len(b))
 		n, err := h.d.Read(b)
 		if err != nil {
+			if err == unix.EAGAIN || err == unix.EINTR {
+				// We should just try again since partial or no data was available
+				continue
+			}
 			log.Printf("mainloop err: %v", err)
 			return
 		}
