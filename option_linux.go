@@ -73,6 +73,15 @@ func LnxSetAdvertisingParameters(c *cmd.LESetAdvertisingParameters) Option {
 	}
 }
 
+// LnxSetScanParameters sets the scan parameters to the HCI device.
+// This option can be used with NewDevice or Option on Linux implementation.
+func LnxSetScanParameters(c *cmd.LESetScanParameters) Option {
+	return func(d Device) error {
+		d.(*device).scanParam = c
+		return nil
+	}
+}
+
 // LnxSendHCIRawCommand sends a raw command to the HCI device
 // This option can be used with NewDevice or Option on Linux implementation.
 func LnxSendHCIRawCommand(c cmd.CmdParam, rsp io.Writer) Option {
