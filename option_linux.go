@@ -94,3 +94,19 @@ func LnxSendHCIRawCommand(c cmd.CmdParam, rsp io.Writer) Option {
 		return err
 	}
 }
+
+// LnxSetScanMode sets the scan mode to the HCI device.
+// This option can be used with NewDevice or Option on Linux implementation.
+func LnxSetScanMode(active bool) Option {
+	return func(d Device) error {
+		if d.(*device).scanParam == nil{
+			d.(*device).scanParam = cmd.NewLESetScanParameters()
+		}
+		if active {
+			d.(*device).scanParam.LEScanType = 0x01 // active
+		} else {
+			d.(*device).scanParam.LEScanType = 0x00 // passive
+		}
+		return nil
+	}
+}
