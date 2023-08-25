@@ -190,6 +190,9 @@ func (d *device) StopAdvertising() error {
 }
 
 func (d *device) Scan(ss []UUID, dup bool) {
+	if d.scanParam != nil {
+		d.hci.SendRawCommand(d.scanParam)
+	}
 	// TODO: filter
 	d.hci.SetScanEnable(true, dup)
 }
