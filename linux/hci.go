@@ -46,6 +46,7 @@ type PlatData struct {
 	Address     [6]byte
 	Data        []byte
 	Connectable bool
+	Scannable   bool
 	RSSI        int8
 
 	Conn io.ReadWriteCloser
@@ -302,14 +303,12 @@ func (h *HCI) handleAdvertisement(b []byte) {
 			Address:     ep.Address[i],
 			Data:        ep.Data[i],
 			Connectable: connectable,
+			Scannable:   scannable,
 			RSSI:        ep.RSSI[i],
 		}
 		h.plistmu.Lock()
 		h.plist[addr] = pd
 		h.plistmu.Unlock()
-		if scannable {
-			continue
-		}
 		h.AdvertisementHandler(pd)
 	}
 }
