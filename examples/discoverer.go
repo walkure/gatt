@@ -1,4 +1,5 @@
-// +build
+//go:build ignore
+// +build ignore
 
 package main
 
@@ -6,8 +7,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bettercap/gatt"
-	"github.com/bettercap/gatt/examples/option"
+	"github.com/walkure/gatt"
+	"github.com/walkure/gatt/examples/option"
 )
 
 func onStateChanged(d gatt.Device, s gatt.State) {
