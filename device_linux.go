@@ -3,6 +3,7 @@ package gatt
 import (
 	"encoding/binary"
 	"net"
+	"log"
 
 	"github.com/walkure/gatt/linux"
 	"github.com/walkure/gatt/linux/cmd"
@@ -185,7 +186,20 @@ func (d *device) StopAdvertising() error {
 
 func (d *device) Scan(ss []UUID, dup bool) {
 	if d.scanParam != nil {
-		d.hci.SendRawCommand(d.scanParam)
+		if d.scanParam.LEScanType == cmd.LEScanTypeActive {
+			log.Printf("start active scan")
+		} else {
+			log.Printf("start passive scan")
+		}
+
+		resp,err := d.hci.SendRawCommand(d.scanParam)
+
+		if err != nil {
+			log.Printf("setup scan error: %v", err)
+			return
+		} else if resp == nil || resp[0] != 0x00 {
+			log.Printf("setup scan unexpected resp: %v", resp)
+		}
 	}
 	// TODO: filter
 	d.hci.SetScanEnable(true, dup)
