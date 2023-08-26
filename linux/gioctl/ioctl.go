@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	numberBits    = 8
-	typeBits      = 8
+	numberBits = 8
+	typeBits   = 8
 
 	numberShift    = 0
 	typeShift      = numberShift + numberBits
