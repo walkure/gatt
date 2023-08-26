@@ -1,6 +1,6 @@
 package util
 
-import "log"
+import "github.com/walkure/gatt/logger"
 
 type BytePool struct {
 	pool  chan []byte
@@ -32,7 +32,7 @@ func (p *BytePool) Put(b []byte) {
 	// packets when the channel is closed
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("bytepool: %v", err)
+			logger.Errorf("bytepool: %v", err)
 		}
 	}()
 

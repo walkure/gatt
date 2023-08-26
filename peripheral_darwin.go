@@ -2,8 +2,8 @@ package gatt
 
 import (
 	"errors"
-	"log"
 
+	"github.com/walkure/gatt/logger"
 	"github.com/walkure/gatt/xpc"
 )
 
@@ -262,7 +262,7 @@ func (p *peripheral) loop() {
 				b := rsp.args.MustGetBytes("kCBMsgArgData")
 				f := p.sub.fn(ch)
 				if f == nil {
-					log.Printf("notified by unsubscribed handle")
+					logger.Errorf("notified by unsubscribed handle")
 					// FIXME: should terminate the connection?
 				} else {
 					go f(b, nil)

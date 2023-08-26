@@ -2,11 +2,11 @@ package gatt
 
 import (
 	"encoding/binary"
-	"log"
 	"net"
 
 	"github.com/walkure/gatt/linux"
 	"github.com/walkure/gatt/linux/cmd"
+	"github.com/walkure/gatt/logger"
 )
 
 type device struct {
@@ -187,18 +187,18 @@ func (d *device) StopAdvertising() error {
 func (d *device) Scan(ss []UUID, dup bool) {
 	if d.scanParam != nil {
 		if d.scanParam.LEScanType == cmd.LEScanTypeActive {
-			log.Printf("start active scan")
+			logger.Debugf("start active scan")
 		} else {
-			log.Printf("start passive scan")
+			logger.Debugf("start passive scan")
 		}
 
 		resp, err := d.hci.SendRawCommand(d.scanParam)
 
 		if err != nil {
-			log.Printf("setup scan error: %v", err)
+			logger.Errorf("setup scan error: %v", err)
 			return
 		} else if resp == nil || resp[0] != 0x00 {
-			log.Printf("setup scan unexpected resp: %v", resp)
+			logger.Errorf("setup scan unexpected resp: %v", resp)
 		}
 	}
 	// TODO: filter

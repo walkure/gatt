@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/walkure/gatt/linux/evt"
 	"github.com/walkure/gatt/linux/util"
+	"github.com/walkure/gatt/logger"
 )
 
 type CmdParam interface {
@@ -115,7 +115,7 @@ func (c *Cmd) processCmdEvents() {
 				}
 			}
 			if !found {
-				log.Printf("Can't find the cmdPkt for this CommandStatusEP: %v", status)
+				logger.Errorf("Can't find the cmdPkt for this CommandStatusEP: %v", status)
 			}
 		case comp := <-c.compc:
 			found := false
@@ -128,7 +128,7 @@ func (c *Cmd) processCmdEvents() {
 				}
 			}
 			if !found {
-				log.Printf("Can't find the cmdPkt for this CommandCompleteEP: %v", comp)
+				logger.Errorf("Can't find the cmdPkt for this CommandCompleteEP: %v", comp)
 			}
 		}
 	}

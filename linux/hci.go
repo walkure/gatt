@@ -1,14 +1,15 @@
 package linux
 
 import (
+	"errors"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"github.com/walkure/gatt/linux/cmd"
 	"github.com/walkure/gatt/linux/evt"
 	"github.com/walkure/gatt/linux/util"
+	"github.com/walkure/gatt/logger"
 	"golang.org/x/sys/unix"
 )
 
@@ -93,15 +94,15 @@ func NewHCI(devID int, chk bool, maxConn int) (*HCI, error) {
 }
 
 func (h *HCI) Close() error {
-	log.Printf("hci.Close()")
+	logger.Infof("hci.Close()")
 	h.pool.Close()
 	<-h.loopDone
-	log.Printf("mainLoop exited")
+	logger.Debugf("mainLoop exited")
 	for _, c := range h.conns {
-		log.Printf("closing connection %v", c)
+		logger.Infof("closing connection %v", c)
 		c.Close()
 	}
-	log.Printf("closing %v", h.d)
+	logger.Debugf("closing %v", h.d)
 	return h.d.Close()
 }
 
@@ -179,34 +180,34 @@ func btoi(b bool) uint8 {
 }
 
 func (h *HCI) mainLoop() {
-	log.Printf("hci.mainLoop started")
+	logger.Debugf("hci.mainLoop started")
 	defer func() {
 		h.loopDone <- true
 	}()
 
 	for {
-		// log.Printf("hci.mainLoop pool.Get")
+		// logger.Debugf("hci.mainLoop pool.Get")
 		b := h.pool.Get()
 		if b == nil {
-			log.Printf("got nil buffer, breaking mainLoop")
+			logger.Errorf("got nil buffer, breaking mainLoop")
 			break
 		}
-		// log.Printf("hci.mainLoop Read(%d)", len(b))
+		// logger.Debugf("hci.mainLoop Read(%d)", len(b))
 		n, err := h.d.Read(b)
 		if err != nil {
 			if err == unix.EAGAIN || err == unix.EINTR {
 				// We should just try again since partial or no data was available
 				continue
 			}
-			log.Printf("mainloop err: %v", err)
+			logger.Errorf("mainloop err: %v", err)
 			return
 		}
 		if n > 0 {
-			// log.Printf("hci.mainLoop -> handlePacket")
+			// logger.Debugf("hci.mainLoop -> handlePacket")
 			h.handlePacket(b, n)
 		}
 	}
-	log.Printf("hci.mainLoop stopped")
+	logger.Debugf("hci.mainLoop stopped")
 }
 
 func (h *HCI) handlePacket(buf []byte, n int) {
@@ -217,7 +218,7 @@ func (h *HCI) handlePacket(buf []byte, n int) {
 	switch t {
 	case typCommandPkt:
 		op := uint16(b[0]) | uint16(b[1])<<8
-		log.Printf("unmanaged cmd: opcode (%04x) [ % X ]\n", op, b)
+		logger.Debugf("unmanaged cmd: opcode (%04x) [ % X ]\n", op, b)
 	case typACLDataPkt:
 		err = h.handleL2CAP(b)
 	case typSCODataPkt:
@@ -227,17 +228,17 @@ func (h *HCI) handlePacket(buf []byte, n int) {
 		go func() {
 			err := h.e.Dispatch(b)
 			if err != nil {
-				log.Printf("hci: %s, [ % X]", err, b)
+				logger.Infof("hci: %s, [ % X]", err, b)
 			}
 			h.pool.Put(buf)
 		}()
 	case typVendorPkt:
-		err = fmt.Errorf("Vendor packet not supported")
+		err = errors.New("vendor packet not supported")
 	default:
-		log.Fatalf("Unknown event: 0x%02X [ % X ]\n", t, b)
+		err = fmt.Errorf("unknown event: 0x%02X [ % X ]\n", t, b)
 	}
 	if err != nil {
-		log.Printf("hci: %s, [ % X]", err, b)
+		logger.Errorf("hci: %s, [ % X]", err, b)
 	}
 	if handled {
 		h.pool.Put(buf)
@@ -329,7 +330,7 @@ func (h *HCI) handleNumberOfCompletedPkts(b []byte) error {
 func (h *HCI) handleConnection(b []byte) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("error while handling connectiont: %v", err)
+			logger.Errorf("error while handling connectiont: %v", err)
 		}
 	}()
 
@@ -365,7 +366,7 @@ func (h *HCI) handleConnection(b []byte) {
 		pd.Conn = c
 		h.AcceptSlaveHandler(pd)
 	} else {
-		log.Printf("HCI: can't find data for %v", ep.PeerAddress)
+		logger.Errorf("HCI: can't find data for %v", ep.PeerAddress)
 	}
 }
 
@@ -380,7 +381,7 @@ func (h *HCI) handleDisconnectionComplete(b []byte) error {
 	c, found := h.conns[hh]
 	if !found {
 		// should not happen, just be cautious for now.
-		log.Printf("l2conn: disconnecting a disconnected 0x%04X connection", hh)
+		logger.Errorf("l2conn: disconnecting a disconnected 0x%04X connection", hh)
 		return nil
 	}
 	delete(h.conns, hh)
@@ -392,7 +393,7 @@ func (h *HCI) handleDisconnectionComplete(b []byte) error {
 func (h *HCI) handleLTKRequest(b []byte) {
 	ep := &evt.LELTKRequestEP{}
 	if err := ep.Unmarshal(b); err != nil {
-		log.Printf("ltkrequest: error, parsing request")
+		logger.Errorf("ltkrequest: error, parsing request: %v", err)
 		return
 	}
 	hh := ep.ConnectionHandle
@@ -401,7 +402,7 @@ func (h *HCI) handleLTKRequest(b []byte) {
 	_, found := h.conns[hh]
 	if !found {
 		// should not happen, just be cautious for now.
-		log.Printf("ltkrequest: error, connection 0x%04X probably expired", hh)
+		logger.Errorf("ltkrequest: error, connection 0x%04X probably expired", hh)
 		return
 	}
 	h.c.Send(cmd.LELTKNegReply{ConnectionHandle: hh})
@@ -411,7 +412,7 @@ func (h *HCI) handleLTKRequest(b []byte) {
 func (h *HCI) handleLEMeta(b []byte) error {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("error while handling meta: %v", err)
+			logger.Errorf("error while handling meta: %v", err)
 		}
 	}()
 
@@ -443,7 +444,7 @@ func (h *HCI) handleL2CAP(b []byte) error {
 	c, found := h.conns[a.attr]
 	if !found {
 		// should not happen, just be cautious for now.
-		log.Printf("l2conn: got data for disconnected handle: 0x%04x", a.attr)
+		logger.Errorf("l2conn: got data for disconnected handle: 0x%04x", a.attr)
 		return nil
 	}
 	c.aclc <- a

@@ -3,9 +3,9 @@ package linux
 import (
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/walkure/gatt/linux/cmd"
+	"github.com/walkure/gatt/logger"
 )
 
 type aclData struct {
@@ -52,7 +52,7 @@ func (c *conn) loop() {
 	defer close(c.datac)
 	for a := range c.aclc {
 		if len(a.b) < 4 {
-			log.Printf("l2conn: short/corrupt packet, %v [% X]", a, a.b)
+			logger.Errorf("l2conn: short/corrupt packet, %v [% X]", a, a.b)
 			return
 		}
 		cid := uint16(a.b[2]) | (uint16(a.b[3]) << 8)
@@ -97,7 +97,7 @@ func (c *conn) write(cid int, b []byte) (int, error) {
 	flag := uint8(0) // ACL data continuation flag
 	tlen := len(b)   // Total length of the l2cap payload
 
-	logger.Info("l2cap", "W", fmt.Sprintf("[% X]", b))
+	logger.Debugf("l2cap, W[% X]", b)
 	w := append(
 		[]byte{
 			0,    // packet type
@@ -139,7 +139,7 @@ func (c *conn) Read(b []byte) (int, error) {
 	if len(d) > len(b) {
 		return copy(b, d), io.ErrShortBuffer
 	}
-	logger.Info("l2cap", "R", fmt.Sprintf("[% X]", d))
+	logger.Debugf("l2cap R[% X]", d)
 	n := copy(b, d)
 	return n, nil
 }
@@ -156,11 +156,11 @@ func (c *conn) Close() error {
 	defer h.connsmu.Unlock()
 	_, found := h.conns[hh]
 	if !found {
-		log.Printf("l2conn: 0x%04x already disconnected", hh)
+		logger.Warnf("l2conn: 0x%04x already disconnected", hh)
 		return nil
 	}
-	if err, _ := h.c.Send(cmd.Disconnect{ConnectionHandle: hh, Reason: 0x13}); err != nil {
-		return fmt.Errorf("l2conn: failed to disconnect, %s", err)
+	if _, err := h.c.Send(cmd.Disconnect{ConnectionHandle: hh, Reason: 0x13}); err != nil {
+		return fmt.Errorf("l2conn: failed to disconnect, %w", err)
 	}
 	return nil
 }
@@ -190,7 +190,7 @@ func (c *conn) Close() error {
 // 0x15 LE Credit Based Connection response		0x0005
 // 0x16 LE Flow Control Credit					0x0005
 func (c *conn) handleSignal(a *aclData) error {
-	log.Printf("ignore l2cap signal:[ % X ]", a.b)
+	logger.Warnf("ignore l2cap signal:[ % X ]", a.b)
 	// FIXME: handle LE signaling channel (CID: 5)
 	return nil
 }

@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"strings"
 
 	"github.com/walkure/gatt/linux"
+	"github.com/walkure/gatt/logger"
 )
 
 type peripheral struct {
@@ -49,7 +49,7 @@ func finish(op byte, h uint16, b []byte) (bool, error) {
 			// Expect attribute not found errors
 			err = nil
 		} else {
-			// log.Printf("unexpected protocol error: %s", e)
+			// logger.Errorf("unexpected protocol error: %s", e)
 			// FIXME: terminate the connection
 		}
 	}
@@ -143,7 +143,6 @@ func (p *peripheral) DiscoverCharacteristics(cs []UUID, s *Service) ([]*Characte
 			u := UUID{b[5:l]}
 			s := searchService(p.svcs, h, vh)
 			if s == nil {
-				log.Printf("Can't find service range that contains 0x%04X - 0x%04X", h, vh)
 				return nil, fmt.Errorf("Can't find service range that contains 0x%04X - 0x%04X", h, vh)
 			}
 			c := &Characteristic{
@@ -408,7 +407,7 @@ func (p *peripheral) loop() {
 						req.rspc <- r
 						break
 					}
-					log.Printf("Request 0x%02x got a mismatched response: 0x%02x", reqOp, rspOp)
+					logger.Warnf("Request 0x%02x got a mismatched response: 0x%02x", reqOp, rspOp)
 					p.l2c.Write(attErrorRsp(rspOp, 0x0000, AttEcodeReqNotSupp))
 				}
 			case <-p.quitc:
@@ -433,7 +432,7 @@ func (p *peripheral) loop() {
 		copy(b, buf)
 
 		if (b[0] != attOpHandleNotify) && (b[0] != attOpHandleInd) {
-			log.Printf("response 0x%x", b[0])
+			logger.Warnf("response 0x%x", b[0])
 			rspc <- b
 			continue
 		}
@@ -441,7 +440,7 @@ func (p *peripheral) loop() {
 		h := binary.LittleEndian.Uint16(b[1:3])
 		f := p.sub.fn(h)
 		if f == nil {
-			log.Printf("notified by unsubscribed handle")
+			logger.Errorf("notified by unsubscribed handle")
 			// FIXME: terminate the connection?
 		} else {
 			go f(b[3:], nil)
