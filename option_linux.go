@@ -103,9 +103,9 @@ func LnxSetScanMode(active bool) Option {
 			d.(*device).scanParam = cmd.NewLESetScanParameters()
 		}
 		if active {
-			d.(*device).scanParam.LEScanType = 0x01 // active
+			d.(*device).scanParam.LEScanType = cmd.LEScanTypeActive // active
 		} else {
-			d.(*device).scanParam.LEScanType = 0x00 // passive
+			d.(*device).scanParam.LEScanType = cmd.LEScanTypePassive // passive
 		}
 		return nil
 	}

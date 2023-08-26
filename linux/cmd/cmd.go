@@ -636,17 +636,25 @@ func (c LESetAdvertiseEnable) Marshal(b []byte) { b[0] = c.AdvertisingEnable }
 type LESetAdvertiseEnableRP struct{ Status uint8 }
 
 // LE Set Scan Parameters (0x000B)
+type LEScanType uint8
 type LESetScanParameters struct {
-	LEScanType           uint8
+	LEScanType           LEScanType
 	LEScanInterval       uint16
 	LEScanWindow         uint16
 	OwnAddressType       uint8
 	ScanningFilterPolicy uint8
 }
 
-func NewLESetScanParameters() *LESetScanParameters{
+const (
+	// LEScanTypeActive [0x01]: active scan
+	LEScanTypeActive LEScanType = 0x01
+	// LEScanTypePassive [0x00]: passive scan
+	LEScanTypePassive LEScanType = 0x00
+)
+
+func NewLESetScanParameters() *LESetScanParameters {
 	return &LESetScanParameters{
-		LEScanType:           0x01,   // [0x00]: passive, 0x01: active
+		LEScanType:           LEScanTypeActive,
 		LEScanInterval:       0x0010, // [0x10]: 0.625ms * 16
 		LEScanWindow:         0x0010, // [0x10]: 0.625ms * 16
 		OwnAddressType:       0x00,   // [0x00]: public, 0x01: random
@@ -657,7 +665,7 @@ func NewLESetScanParameters() *LESetScanParameters{
 func (c LESetScanParameters) Opcode() int { return opLESetScanParameters }
 func (c LESetScanParameters) Len() int    { return 7 }
 func (c LESetScanParameters) Marshal(b []byte) {
-	o.PutUint8(b[0:], c.LEScanType)
+	o.PutUint8(b[0:], uint8(c.LEScanType))
 	o.PutUint16(b[1:], c.LEScanInterval)
 	o.PutUint16(b[3:], c.LEScanWindow)
 	o.PutUint8(b[5:], c.OwnAddressType)
