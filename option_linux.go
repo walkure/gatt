@@ -99,7 +99,7 @@ func LnxSendHCIRawCommand(c cmd.CmdParam, rsp io.Writer) Option {
 // This option can be used with NewDevice or Option on Linux implementation.
 func LnxSetScanMode(active bool) Option {
 	return func(d Device) error {
-		if d.(*device).scanParam == nil{
+		if d.(*device).scanParam == nil {
 			d.(*device).scanParam = cmd.NewLESetScanParameters()
 		}
 		if active {

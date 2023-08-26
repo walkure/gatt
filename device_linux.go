@@ -2,8 +2,8 @@ package gatt
 
 import (
 	"encoding/binary"
-	"net"
 	"log"
+	"net"
 
 	"github.com/walkure/gatt/linux"
 	"github.com/walkure/gatt/linux/cmd"
@@ -192,7 +192,7 @@ func (d *device) Scan(ss []UUID, dup bool) {
 			log.Printf("start passive scan")
 		}
 
-		resp,err := d.hci.SendRawCommand(d.scanParam)
+		resp, err := d.hci.SendRawCommand(d.scanParam)
 
 		if err != nil {
 			log.Printf("setup scan error: %v", err)
