@@ -54,7 +54,7 @@ func newSocket(fd, n int, chk bool) (*device, error) {
 	if err := gioctl.Ioctl(uintptr(fd), hciGetDeviceInfo, uintptr(unsafe.Pointer(&i))); err != nil {
 		return nil, fmt.Errorf("hciGetDeviceInfo failed: %w", err)
 	}
-	name := string(i.name[:])
+	name := i.name.String()
 	// Check the feature list returned feature list.
 	if chk && i.features[4]&0x40 == 0 {
 		return nil, fmt.Errorf("does not support LE. dev: %q", name)
