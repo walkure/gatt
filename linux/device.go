@@ -36,6 +36,9 @@ func newDevice(n int, chk bool) (*device, error) {
 		return nil, fmt.Errorf("hciGetDeviceList failed: %w", err)
 	}
 	logger.Debugf("got %d devices", req.devNum)
+	if req.devNum == 0 {
+		return nil,errors.New("no supported devices found")
+	}
 	errs := make([]error, 0, int(req.devNum))
 	for i := 0; i < int(req.devNum); i++ {
 		d, err := newSocket(fd, i, chk)
