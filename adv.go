@@ -2006,11 +2006,13 @@ func (a *Advertisement) unmarshall(b []byte) error {
 			return errors.New("invalid advertise data")
 		}
 		l, t := b[0], b[1]
-		if int(l) < 1 || len(b) < int(1+l) {
+		right := int(1 + l)
+
+		if l < 1 || len(b) < right || right < 2 {
 			return errors.New("invalid advertise data")
 		}
 
-		d := b[2 : 1+l]
+		d := b[2:right]
 		a.Raw = d
 
 		switch t {
