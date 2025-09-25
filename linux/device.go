@@ -28,7 +28,7 @@ func newDevice(n int, chk bool) (*device, error) {
 		return nil, fmt.Errorf("could not create AF_BLUETOOTH raw socket: %w", err)
 	}
 	if n != -1 {
-		return newSocket(fd, n, chk)
+		return newSocket(fd, uint16(n), chk)
 	}
 
 	req := devListRequest{devNum: hciMaxDevices}
@@ -41,7 +41,8 @@ func newDevice(n int, chk bool) (*device, error) {
 	}
 	errs := make([]error, 0, int(req.devNum))
 	for i := 0; i < int(req.devNum); i++ {
-		d, err := newSocket(fd, i, chk)
+		logger.Debugf("Try to open device[%d]: id:%d",i,req.devRequest[i].id)
+		d, err := newSocket(fd, req.devRequest[i].id, chk)
 		if err == nil {
 			logger.Debugf("dev: %s opened", d.name)
 			return d, err
@@ -52,8 +53,8 @@ func newDevice(n int, chk bool) (*device, error) {
 	return nil, fmt.Errorf("no supported devices available: %w", errors.Join(errs...))
 }
 
-func newSocket(fd, n int, chk bool) (*device, error) {
-	i := hciDevInfo{id: uint16(n)}
+func newSocket(fd int , id uint16, chk bool) (*device, error) {
+	i := hciDevInfo{id: id}
 	if err := gioctl.Ioctl(uintptr(fd), hciGetDeviceInfo, uintptr(unsafe.Pointer(&i))); err != nil {
 		return nil, fmt.Errorf("hciGetDeviceInfo failed: %w", err)
 	}
@@ -63,29 +64,29 @@ func newSocket(fd, n int, chk bool) (*device, error) {
 		return nil, fmt.Errorf("does not support LE. dev: %q", name)
 	}
 	logger.Debugf("dev: %s up", name)
-	if err := gioctl.Ioctl(uintptr(fd), hciUpDevice, uintptr(n)); err != nil {
+	if err := gioctl.Ioctl(uintptr(fd), hciUpDevice, uintptr(id)); err != nil {
 		if err != syscall.EALREADY {
 			return nil, err
 		}
 		logger.Debugf("dev: %s reset", name)
-		if err := gioctl.Ioctl(uintptr(fd), hciResetDevice, uintptr(n)); err != nil {
+		if err := gioctl.Ioctl(uintptr(fd), hciResetDevice, uintptr(id)); err != nil {
 			return nil, fmt.Errorf("hciResetDevice failed: %w", err)
 		}
 	}
 	logger.Debugf("dev: %s down", name)
-	if err := gioctl.Ioctl(uintptr(fd), hciDownDevice, uintptr(n)); err != nil {
+	if err := gioctl.Ioctl(uintptr(fd), hciDownDevice, uintptr(id)); err != nil {
 		return nil, fmt.Errorf("hciDownDevice failed: %w", err)
 	}
 
 	// Attempt to use the linux 3.14 feature, if this fails with EINVAL fall back to raw access
 	// on older kernels.
-	sa := socket.SockaddrHCI{Dev: n, Channel: socket.HCI_CHANNEL_USER}
+	sa := socket.SockaddrHCI{Dev: int(id), Channel: socket.HCI_CHANNEL_USER}
 	if err := socket.Bind(fd, &sa); err != nil {
 		if err != syscall.EINVAL {
 			return nil, fmt.Errorf("dev %q doesn't returns EINVAL: %w", name, err)
 		}
 		logger.Warnf("dev: %q can't bind to hci user channel, err: %s.", name, err)
-		sa := socket.SockaddrHCI{Dev: n, Channel: socket.HCI_CHANNEL_RAW}
+		sa := socket.SockaddrHCI{Dev: int(id), Channel: socket.HCI_CHANNEL_RAW}
 		if err := socket.Bind(fd, &sa); err != nil {
 			return nil, fmt.Errorf("dev: %q can't bind to hci raw channel, err: %w", name, err)
 		}
@@ -98,7 +99,7 @@ func newSocket(fd, n int, chk bool) (*device, error) {
 	return &device{
 		fd:   fd,
 		fds:  fds,
-		dev:  n,
+		dev:  int(id),
 		name: name,
 		rmu:  &sync.Mutex{},
 		wmu:  &sync.Mutex{},
