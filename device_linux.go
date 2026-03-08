@@ -221,6 +221,14 @@ func (d *device) SendHCIRawCommand(c cmd.CmdParam) ([]byte, error) {
 	return d.hci.SendRawCommand(c)
 }
 
+func (d *device) Done() <-chan struct{} {
+	return d.hci.Done()
+}
+
+func (d *device) Err() error {
+	return d.hci.Err()
+}
+
 // Flush pending advertising settings to the device.
 func (d *device) update() error {
 	if d.advParam != nil {

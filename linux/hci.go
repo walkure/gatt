@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/walkure/gatt/linux/cmd"
 	"github.com/walkure/gatt/linux/evt"
@@ -31,6 +32,8 @@ type HCI struct {
 	pool     *util.BytePool
 	loopDone chan bool
 
+	done    chan struct{}
+	loopErr atomic.Value
 	maxConn int
 	connsmu *sync.Mutex
 	conns   map[uint16]*conn
@@ -75,6 +78,7 @@ func NewHCI(devID int, chk bool, maxConn int) (*HCI, error) {
 		pool:     util.NewBytePool(4096, 16),
 		loopDone: make(chan bool),
 
+		done:    make(chan struct{}),
 		maxConn: maxConn,
 		connsmu: &sync.Mutex{},
 		conns:   map[uint16]*conn{},
@@ -179,9 +183,21 @@ func btoi(b bool) uint8 {
 	return 0
 }
 
+func (h *HCI) Done() <-chan struct{} {
+	return h.done
+}
+
+func (h *HCI) Err() error {
+	if v := h.loopErr.Load(); v != nil {
+		return v.(error)
+	}
+	return nil
+}
+
 func (h *HCI) mainLoop() {
 	logger.Debugf("hci.mainLoop started")
 	defer func() {
+		close(h.done)
 		h.loopDone <- true
 	}()
 
@@ -189,6 +205,7 @@ func (h *HCI) mainLoop() {
 		// logger.Debugf("hci.mainLoop pool.Get")
 		b := h.pool.Get()
 		if b == nil {
+			h.loopErr.Store(errors.New("hci: got nil buffer from pool"))
 			logger.Errorf("got nil buffer, breaking mainLoop")
 			break
 		}
@@ -199,6 +216,7 @@ func (h *HCI) mainLoop() {
 				// We should just try again since partial or no data was available
 				continue
 			}
+			h.loopErr.Store(err)
 			logger.Errorf("mainloop err: %v", err)
 			return
 		}
