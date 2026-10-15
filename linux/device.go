@@ -86,9 +86,37 @@ func newSocket(fd int , id uint16, chk bool) (*device, error) {
 			return nil, fmt.Errorf("dev %q doesn't returns EINVAL: %w", name, err)
 		}
 		logger.Warnf("dev: %q can't bind to hci user channel, err: %s.", name, err)
+
+		// Pre-3.14 kernel fallback. Unlike HCI_CHANNEL_USER,
+		// HCI_CHANNEL_RAW requires the device to already be HCI_UP --
+		// hci_sock_sendmsg() returns ENETDOWN otherwise -- which is the
+		// opposite of what the HCIDEVDOWN call above just did. Bring it
+		// back up. EALREADY here just means something else (e.g. a
+		// device-specific bring-up helper that already did the kernel's
+		// HCI_AUTO_OFF dance via an mgmt Set Powered command -- see
+		// doc/bluetooth.md section 16 in the walkure/nextdrive repo for
+		// why that's needed on some hardware) already brought it up; in
+		// that case leave it alone rather than resetting/downing it.
+		if err := gioctl.Ioctl(uintptr(fd), hciUpDevice, uintptr(id)); err != nil && err != syscall.EALREADY {
+			return nil, fmt.Errorf("hciUpDevice (raw channel fallback) failed: %w", err)
+		}
+
 		sa := socket.SockaddrHCI{Dev: int(id), Channel: socket.HCI_CHANNEL_RAW}
 		if err := socket.Bind(fd, &sa); err != nil {
 			return nil, fmt.Errorf("dev: %q can't bind to hci raw channel, err: %w", name, err)
+		}
+
+		// Unlike HCI_CHANNEL_USER, HCI_CHANNEL_RAW silently drops every
+		// packet unless this socket's filter has the matching type/event
+		// bits set (hci_send_to_sock() in the kernel; see doc/bluetooth.md
+		// section 17 for how this was diagnosed -- cmd_tx/evt_rx counters
+		// kept incrementing in hcidev_stats while reads blocked forever,
+		// because the raw socket never actually got the matching events).
+		flt := socket.HCIFilter{TypeMask: 1 << 4 /* HCI_EVENT_PKT */}
+		flt.EventMask[0] = 0xffffffff
+		flt.EventMask[1] = 0xffffffff
+		if err := socket.SetsockoptFilter(fd, &flt); err != nil {
+			return nil, fmt.Errorf("dev %q: setsockopt(HCI_FILTER) failed: %w", name, err)
 		}
 	}
 
